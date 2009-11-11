@@ -33,7 +33,7 @@ END_LEGAL */
 #include <stdlib.h>
 #include <string.h>
 #include "pin.H"
-unsigned int num = 0x00;
+
 struct node_t
 {
         struct node_t * next;
@@ -44,22 +44,22 @@ struct node_t
 
 struct node_t root;
 
-// This function is called before every block
-// Use the fast linkage for calls
-VOID CheckBbl(ADDRINT addr, UINT32 size)
+KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool",
+    "o", "mypin.out", "specify output file name");
+
+VOID List(ADDRINT addr, UINT32 size)
 {
 	PIN_LockClient();
 	IMG img = IMG_FindByAddress(addr);
 	PIN_UnlockClient();
 	if(!IMG_Valid(img))
 	{
-		cout << "Invalid img" << endl;
 		return;
 	}
 
 	if(!IMG_IsMainExecutable(img))
 		return;
-        
+	
 	struct node_t * new_node = (struct node_t *)malloc(sizeof(struct node_t));
 
         if(!new_node)
@@ -68,112 +68,67 @@ VOID CheckBbl(ADDRINT addr, UINT32 size)
                 return;
         }
         
-	memset(new_node, 0x00, sizeof(struct node_t));
-
         new_node->head = addr;
         new_node->len = size;
 
-        struct node_t * marker = &root;
+        struct node_t * marker = root.next;
 
-        if( !marker->next )
+        if( !marker )
         {
-		cout << "Added the first node" << endl;
-                marker->next = new_node;
-                marker->prev = new_node;
-                new_node->next = marker;
-                new_node->prev = marker;
+                root.next = new_node;
+                root.prev = new_node;
+                new_node->next = &root;
+                new_node->prev = &root;
                 return;
-        }
+	}
 
-        if( marker->prev->head == addr)
-        {
-		cout << "Block visited exists at the end already" << endl;
-                free(new_node);
-               return;
-        }
+	while(marker != & root)
+	{
+		if(marker->head == addr)
+		{
+			free(new_node);
+			return;
+		}
 
-        if( marker->prev->head + marker->prev->len == addr)
-        {
-		cout << "Coalescing end block down" << endl;
-                marker->prev->len += size;
-                free(new_node);
-                return;
-        }
+		if(addr < marker->head)
+		{
+			new_node->prev = marker->prev;
+			new_node->next = marker;
+			marker->prev->next = new_node;
+			marker->prev = new_node;
+			return;
+		}
 
-        if( (marker->prev->head < addr) && (addr < marker->prev->head + marker->prev->len))
-        {
-		cout << "Block already among end visited" <<endl;
-                free(new_node);
-                return;
-        }
+		marker = marker->next;
+	}
 
-       if( marker->prev->head < addr)
-        {
-		cout << "Adding new end block node" << endl;
-                marker->prev->next = new_node;
-                new_node->prev = marker->prev;
-                marker->prev = new_node;
-                new_node->next = marker;
+	return;
+}
 
-                return;
-        }
-        marker = root.next;
+VOID Coalesce()
+{
+	struct node_t * marker = root.prev;
+	struct node_t * temp = NULL;
 
-        while(marker != &root)
-        {
-              if(marker->head == addr)
-                {
-			cout << "Block is already a head" << endl;
-                        free(new_node);
-                        return;
-                }
+	while(marker->prev != & root)
+	{
+		if(marker->prev->head + marker->prev->len == marker->head)
+		{
+			marker->prev->len += marker->len;
+			marker->next->prev = marker->prev;
+			marker->prev->next = marker->next;
 
-                if(marker->head + marker->len == addr)
-                {
-			cout << "Coalescing block down" << endl;
-                        marker->len += size;
+			temp = marker->next;
+			free(marker);
 
-                        if(marker->head + marker->len == marker->next->head)
-                        {
-				cout << "Coalescing two blocks" << endl;
-                               	marker->len += marker->next->len;
-                                struct node_t * temp = marker->next;
-                                marker->next = marker->next->next;
-                                marker->next->prev = marker;
+			marker = temp;			
+		}
+		
+		marker = marker->prev;
+	}
 
-                                free(temp);
-
-                                return;
-                        }
-
-                        return;
-                }
-
-                if(addr + size == marker->head)
-                {
-			cout << "Coalescing up" << endl;
-                        marker->head = addr;
-                       	marker->len += size;
-
-                        free(new_node);
-                        return;
-                }
-
-                if(addr < marker->head)
-                {
-			cout << "Inserting newly visited block" << endl;
-                        marker->prev->next = new_node;
-                        new_node->prev = marker->prev;
-                        new_node->next = marker;
-                        marker->prev = new_node;
-
-                        return;
-                }
-                marker = marker->next;
-        }
-
-        return;
-} 
+}
+ 
 // Pin calls this function every time a new basic block is encountered
 // It inserts a call to docount
 VOID Trace(TRACE trace, VOID *v)
@@ -184,24 +139,28 @@ VOID Trace(TRACE trace, VOID *v)
         // Insert a call to docount for every bbl, passing the number of instructions.
         // IPOINT_ANYWHERE allows Pin to schedule the call anywhere in the bbl to obtain best performance.
         // Use a fast linkage for the call.
-        BBL_InsertCall(bbl, IPOINT_ANYWHERE, AFUNPTR(CheckBbl), IARG_ADDRINT, BBL_Address(bbl), IARG_UINT32, BBL_Size(bbl), IARG_END);
+        BBL_InsertCall(bbl, IPOINT_ANYWHERE, AFUNPTR(List), IARG_ADDRINT, BBL_Address(bbl), IARG_UINT32, BBL_Size(bbl), IARG_END);
     }
 }
-
-KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool",
-    "o", "mypin.out", "specify output file name");
 
 // This function is called when the application exits
 VOID Fini(INT32 code, VOID *v)
 {
-cout << "FINI" << endl;
+	ofstream OutFile;
+	OutFile.open(KnobOutputFile.Value().c_str());
+    	OutFile.setf(ios::showbase);
+
 	struct node_t * marker = root.next;
-cout << "FINISHED" << std::endl;
+
+	Coalesce();
+
 	while(marker!=&root)
 	{
-		cout << "ADDR: " << std::hex << marker->head << " SIZE: " << std::hex << marker->len << std::endl;
+		OutFile << "ADDR: " << std::hex << marker->head << " SIZE: " << marker->len << endl;
 		marker = marker->next;
 	}
+
+	OutFile.close();
 }
 
 // argc, argv are the entire command line, including pin -t <toolname> -- ...
