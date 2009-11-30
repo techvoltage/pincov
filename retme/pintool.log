@@ -1,3 +1,0 @@
-Pin 2.6 kit 27863
-A: Source/pin/pin/image.cpp:INS_DirectBranchOrCallTargetAddress:693: assertion failed: INS_IsDirectBranchOrCall(ins)
-

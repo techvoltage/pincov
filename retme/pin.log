@@ -1,4 +1,0 @@
-Pin 2.6 kit 27863
-A: Source/pin/vm/jit_instrument.cpp:InsertBeforeAfterCalls:728: cannot insert IPOINT_AFTER on an instruction without a fall-through path
-       4 0x0805bd8d ret 
-
