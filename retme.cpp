@@ -37,48 +37,18 @@ END_LEGAL */
 
 using namespace std;
 
+vector<ADDRINT> st_v;
+
 // The running count of instructions is kept here
 // make it static to help the compiler optimize docount
 static UINT64 callcnt = 0;
 static UINT64 retcnt = 0;
 
-typedef struct stack
-{
-	struct stack * prev;
-	ADDRINT call_addr;
-	ADDRINT ret_addr;
-} stack;
-
-stack root;
-
 ofstream OutFile;
 
 // This function is called before every instruction is executed
 VOID push(ADDRINT call, ADDRINT ret) {
-	stack * new_st = (stack *)malloc(sizeof(stack));
-	memset(new_st, 0x00, sizeof(stack));
-
-	if(!root.prev)
-	{
-		new_st->call_addr = call;
-		new_st->ret_addr = ret;
-		root.prev = new_st;
-	} else
-	{
-
-		stack * temp = root.prev;
-	
-		while(temp->prev)
-		{
-			temp = temp->prev;
-		}
-
-		new_st->call_addr = call;
-		new_st->ret_addr = ret;
-
-		temp->prev = new_st;
-	}
-
+	st_v.push_back(ret);
 	callcnt++;
 }
 VOID pop(const CONTEXT * cxt) {
@@ -88,8 +58,8 @@ retcnt++;
 
 	PIN_SafeCopy(&value, &stack_addr, sizeof(ADDRINT));
 
-	OutFile << "addr: " << value << " stack: " << *(ADDRINT*)(stack_addr) << endl;
-
+	OutFile << "value: " << value << " stack: " << stack_addr << endl;
+	
 }
     
 // Pin calls this function every time a new instruction is encountered
@@ -121,20 +91,14 @@ KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool",
 // This function is called when the application exits
 VOID Fini(INT32 code, VOID *v)
 {
-	stack * t = NULL;
-	stack * temp = root.prev;
     // Write to a file since cout and cerr maybe closed by the application
     OutFile << "Call Count " << callcnt << endl;
     OutFile << "Ret Count " << retcnt << endl;
 
-	while(temp)
+	while(!st_v.empty())
 	{
-		t = temp;
-		OutFile << "Call: " << std::hex << temp->call_addr << " Ret: ";
-		OutFile << std::hex << temp->ret_addr << endl;
-
-		temp = temp->prev;
-		free(t);
+		OutFile << "End: " << st_v.back() << endl;
+		st_v.pop_back();
 	}
     OutFile.close();
 }
@@ -142,10 +106,6 @@ VOID Fini(INT32 code, VOID *v)
 // argc, argv are the entire command line, including pin -t <toolname> -- ...
 int main(int argc, char * argv[])
 {
-	root.prev = NULL;
-	root.call_addr = 0x00;
-	root.ret_addr = 0x00;
-
     OutFile.open(KnobOutputFile.Value().c_str());
     OutFile << std::hex;
     OutFile.setf(ios::showbase);
