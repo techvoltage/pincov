@@ -37,20 +37,27 @@ END_LEGAL */
 
 using namespace std;
 
+// The vector used to store the "stack" of return addresses.
 vector<ADDRINT> st_v;
 
-// The running count of instructions is kept here
-// make it static to help the compiler optimize docount
+// The count of calls and rets.
 static UINT64 callcnt = 0;
 static UINT64 retcnt = 0;
 
+// Output file
 ofstream OutFile;
 
-// This function is called before every instruction is executed
-VOID push(ADDRINT call, ADDRINT ret) {
+// This is executed when a CALL instruction is encountered
+// 	It stores the valid return address.
+VOID push(ADDRINT ret) {
 	st_v.push_back(ret);
 	callcnt++;
 }
+
+// Executed when a ret instruction is encountered
+//  It is supposed to retrieve the stack pointer, copy the 4
+//  bytes at the top of the stack and check that value against
+//  the valid return address.
 VOID pop(const CONTEXT * cxt) {
 retcnt++;
 	ADDRINT value;
@@ -75,10 +82,9 @@ VOID Instruction(INS ins, VOID *v)
 		return;
 	PIN_UnlockClient();
 
-    // Insert a call to docount before every instruction, no arguments are passed
     if(INS_IsCall(ins))
 	{
-    	INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)push, IARG_ADDRINT, INS_Address(ins), IARG_ADDRINT, INS_NextAddress(ins), IARG_END);
+    	INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)push, IARG_ADDRINT, INS_NextAddress(ins), IARG_END);
 	} else if (INS_IsRet(ins))
 	{
 		INS_InsertCall(ins, IPOINT_BEFORE, AFUNPTR(pop), IARG_CONTEXT, IARG_END);
@@ -91,7 +97,6 @@ KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool",
 // This function is called when the application exits
 VOID Fini(INT32 code, VOID *v)
 {
-    // Write to a file since cout and cerr maybe closed by the application
     OutFile << "Call Count " << callcnt << endl;
     OutFile << "Ret Count " << retcnt << endl;
 
