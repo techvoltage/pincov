@@ -31,7 +31,8 @@ END_LEGAL */
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
-#include <string>
+#include <string.h>
+#include <vector>
 #include "pin.H"
 
 using namespace std;
@@ -84,10 +85,10 @@ VOID pop(const CONTEXT * cxt) {
 retcnt++;
 	ADDRINT value;
 	ADDRINT stack_addr = PIN_GetContextReg(cxt, REG_ESP);
-stack_addr+=4;
+
 	PIN_SafeCopy(&value, &stack_addr, sizeof(ADDRINT));
 
-	OutFile << "addr: " << value << " stack: " << stack_addr << endl;
+	OutFile << "addr: " << value << " stack: " << *(ADDRINT*)(stack_addr) << endl;
 
 }
     
