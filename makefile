@@ -35,7 +35,7 @@ endif
 
 
  
-TOOL_ROOTS = pincov retme
+TOOL_ROOTS = pincov retme gdb
 
 TOOLS = $(TOOL_ROOTS:%=$(OBJDIR)%$(PINTOOL_SUFFIX))
 

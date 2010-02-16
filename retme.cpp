@@ -63,7 +63,7 @@ retcnt++;
 	ADDRINT value;
 	ADDRINT stack_addr = PIN_GetContextReg(cxt, REG_ESP);
 
-	PIN_SafeCopy(&value, &stack_addr, sizeof(ADDRINT));
+	PIN_SafeCopy(&value, reinterpret_cast<VOID *>(stack_addr), sizeof(ADDRINT));
 
 	OutFile << "value: " << value << " stack: " << stack_addr << endl;
 	
