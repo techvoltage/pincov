@@ -2,19 +2,32 @@
 #include <vector>
 #include <string>
 #include <boost/tokenizer.hpp>
+#include <boost/lexical_cast.hpp>
 #include "pin.H"
 
 using namespace std;
 using namespace boost;
 
-static BOOL DebugInterpreter(THREADID, CONTEXT *, const string &, string *, VOID *);
+/* Breakpoint on access globals */
+typedef struct bpaInfo
+{
+	unsigned int bpaId;
+	ADDRINT bpaAddress;
+	unsigned int bpaLength;
+	unsigned char operations;	// r == Read, w == write, x == execute
+} BPAINFO;
+
+unsigned int currentBpId;
+vector<BPAINFO> bpaVector;
+BOOL isInstInsEnabled;
+
+static BOOL DebugInterpreter( THREADID, CONTEXT *, const string &, string *, VOID * );
+BOOL HandleBpa( vector<string> );
 
 int main(int argc, char **argv)
 {
-
 	if( PIN_Init(argc, argv) == TRUE )
 	{
-		cout << "Error Parsing Pin Arguments." << endl;
 		return -1;
 	}
 
@@ -28,6 +41,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	cout << "before add callback " << endl;
 	PIN_AddDebugInterpreter(DebugInterpreter, 0);
 
 	cout << "Added debug callback" << endl;
@@ -35,6 +49,27 @@ int main(int argc, char **argv)
 	PIN_StartProgram();
 	
 	return 1;
+}
+
+BOOL HandleBpa(vector<string> cmd)
+{
+	/* bpa <addr> <len> <ops> */
+	if(cmd.size() != 4)
+	{
+		return false;
+	}
+
+	ADDRINT addr = 0x00;
+
+	/* Confirm validity of the bpa command syntax */
+
+	/* If Instruction Instrumentation is not enabled then start it. */
+
+	/* Add a new bpa vector */ 
+
+	if(addr)
+		addr++;
+	return true;
 }
 
 static BOOL DebugInterpreter(THREADID, CONTEXT *cxt, const string &cmd, string *result, VOID *)
@@ -59,10 +94,19 @@ static BOOL DebugInterpreter(THREADID, CONTEXT *cxt, const string &cmd, string *
 
 	if(temp_cmd == "bpa")
 	{
-		*result += " Yay my first command\n";
+		if ( HandleBpa(parsedcmd) )	
+		{
+			*result += "Success\n";
+		} else
+		{
+			*result += "Failed\n";
+		}
 	} else if(temp_cmd == "s")
 	{
 		*result += "Yay my search command\n";
+	} else if (temp_cmd == "bpd")
+	{
+		*result += "Delete an access breakpoint\n";
 	} else
 	{
 		*result += "As of yet unrecognized\n";
