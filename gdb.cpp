@@ -1,5 +1,7 @@
 #include <iostream>
-#include <boost/algorithm/string.hpp>
+#include <vector>
+#include <string>
+#include <boost/tokenizer.hpp>
 #include "pin.H"
 
 using namespace std;
@@ -12,7 +14,7 @@ int main(int argc, char **argv)
 
 	if( PIN_Init(argc, argv) == TRUE )
 	{
-		cerr << "Error Parsing Pin Arguments." << endl;
+		cout << "Error Parsing Pin Arguments." << endl;
 		return -1;
 	}
 
@@ -21,12 +23,14 @@ int main(int argc, char **argv)
 	 */
 	if( PIN_GetDebugStatus() == DEBUG_STATUS_DISABLED )
 	{
-		cerr << "USAGE:" << endl;
-		cerr << "\t../../../pin -appdebug -t " << argv[0] << " -- <progname>" << endl;
+		cout << "USAGE:" << endl;
+		cout << "\t../../../pin -appdebug -t " << argv[0] << " -- <progname>" << endl;
 		return -1;
 	}
 
 	PIN_AddDebugInterpreter(DebugInterpreter, 0);
+
+	cout << "Added debug callback" << endl;
 
 	PIN_StartProgram();
 	
@@ -35,8 +39,21 @@ int main(int argc, char **argv)
 
 static BOOL DebugInterpreter(THREADID, CONTEXT *cxt, const string &cmd, string *result, VOID *)
 {
-	boost::algorithm::split_vector_type SplitVec;
-	split( SplitVec, cmd, is_any_of(" ") );
+	/* You have to clear out the result string from previous calls to DebugInterpreter */
+	*result = "";
+
+	vector<string> parsedcmd;
+
+	tokenizer<> tok(cmd);
+
+	for(tokenizer<>::iterator beg=tok.begin(); beg!=tok.end(); ++beg)
+	{
+		parsedcmd.push_back(*beg);
+	}
+
+	*result += parsedcmd.back();
+
+	parsedcmd.clear();
 
 	return 1;
 }
