@@ -46,14 +46,27 @@ static BOOL DebugInterpreter(THREADID, CONTEXT *cxt, const string &cmd, string *
 
 	tokenizer<> tok(cmd);
 
+	/* Create a vector of the command and its arguments */
 	for(tokenizer<>::iterator beg=tok.begin(); beg!=tok.end(); ++beg)
 	{
 		parsedcmd.push_back(*beg);
 	}
 
-	*result += parsedcmd.back();
+	/* Create a temp string here so that each if statement is not
+		required to run the at() function. Hopefully save as many cycles
+		as I can. */
+	string temp_cmd = parsedcmd.at(0);
 
-	parsedcmd.clear();
+	if(temp_cmd == "bpa")
+	{
+		*result += " Yay my first command\n";
+	} else if(temp_cmd == "s")
+	{
+		*result += "Yay my search command\n";
+	} else
+	{
+		*result += "As of yet unrecognized\n";
+	}
 
 	return 1;
 }
