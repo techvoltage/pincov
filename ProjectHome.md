@@ -1,0 +1,1 @@
+Using the INTEL Pin framework this modules creates a .cov file of executed blocks within a program.
